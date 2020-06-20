@@ -33,21 +33,21 @@ import dl.utils.SceneState;
 
 public class ClientNaiveAgent implements Runnable {
 
-
-	//Wrapper of the communicating messages
+	// Wrapper of the communicating messages
 	private ClientActionRobotJava ar;
 	public byte currentLevel = -1;
 	public int failedCounter = 0;
 	public int[] solved;
-	TrajectoryPlanner tp; 
+	TrajectoryPlanner tp;
 	private int id = 28888;
 	private boolean firstShot;
 	private DLLevelSelection levelSchemer;
 	private Point prevTarget;
 	private Random randomGenerator;
+
 	/**
 	 * Constructor using the default IP
-	 * */
+	 */
 	public ClientNaiveAgent() {
 		// the default ip is the localhost
 		ar = new ClientActionRobotJava("127.0.0.1");
@@ -57,9 +57,10 @@ public class ClientNaiveAgent implements Runnable {
 		firstShot = true;
 
 	}
+
 	/**
 	 * Constructor with a specified IP
-	 * */
+	 */
 	public ClientNaiveAgent(String ip) {
 		ar = new ClientActionRobotJava(ip);
 		tp = new TrajectoryPlanner();
@@ -68,8 +69,8 @@ public class ClientNaiveAgent implements Runnable {
 		firstShot = true;
 
 	}
-	public ClientNaiveAgent(String ip, int id)
-	{
+
+	public ClientNaiveAgent(String ip, int id) {
 		ar = new ClientActionRobotJava(ip);
 		tp = new TrajectoryPlanner();
 		randomGenerator = new Random();
@@ -77,78 +78,72 @@ public class ClientNaiveAgent implements Runnable {
 		firstShot = true;
 		this.id = id;
 	}
-	public int getNextLevel()
-	{
+
+	public int getNextLevel() {
 		int level = 0;
 		boolean unsolved = false;
-		//all the level have been solved, then get the first unsolved level
-		for (int i = 0; i < solved.length; i++)
-		{
-			if(solved[i] == 0 )
-			{
-					unsolved = true;
-					level = i + 1;
-					if(level <= currentLevel && currentLevel < solved.length)
-						continue;
-					else
-						return level;
+		// all the level have been solved, then get the first unsolved level
+		for (int i = 0; i < solved.length; i++) {
+			if (solved[i] == 0) {
+				unsolved = true;
+				level = i + 1;
+				if (level <= currentLevel && currentLevel < solved.length)
+					continue;
+				else
+					return level;
 			}
 		}
-		if(unsolved)
+		if (unsolved)
 			return level;
-	    level = (currentLevel + 1)%solved.length;
-		if(level == 0)
+		level = (currentLevel + 1) % solved.length;
+		if (level == 0)
 			level = solved.length;
-		return level; 
+		return level;
 	}
-    /* 
-     * Run the Client (Naive Agent)
-     */
-	private void checkMyScore()
-	{
-		
+
+	/*
+	 * Run the Client (Naive Agent)
+	 */
+	private void checkMyScore() {
+
 		int[] scores = ar.checkMyScore();
 		System.out.println(" My score: ");
 		int level = 1;
-		for(int i: scores)
-		{
+		for (int i : scores) {
 			System.out.println(" level " + level + "  " + i);
 			if (i > 0)
 				solved[level - 1] = 1;
-			level ++;
+			level++;
 		}
 	}
-	public void run() {	
+
+	public void run() {
 		byte[] info = ar.configure(ClientActionRobot.intToByteArray(id));
 		solved = new int[info[2]];
-		
+
 		levelSchemer = new DLLevelSelection(info, ar);
 
-		
-		//load the initial level (default 1)
-		//Check my score
+		// load the initial level (default 1)
+		// Check my score
 		checkMyScore();
-		
-		currentLevel = (byte)getNextLevel(); 
+
+		currentLevel = (byte) getNextLevel();
 		ar.loadLevel(currentLevel);
-		//ar.loadLevel((byte)9);
+		// ar.loadLevel((byte)9);
 		GameState state;
 		while (true) {
-			
-state = solve();
-			
 
-			if(state != GameState.PLAYING)
-			{
+			state = solve();
+
+			if (state != GameState.PLAYING) {
 				LogWriter.lastScore = 0;
 			}
 
-			//If the level is solved , go to the next level
-			if (state == GameState.WON) 
-			{
+			// If the level is solved , go to the next level
+			if (state == GameState.WON) {
 
 				levelSchemer.updateStats(ar, true);
-				
+
 				ar.loadLevel(levelSchemer.currentLevel);
 
 				// make a new trajectory planner whenever a new level is entered
@@ -156,34 +151,24 @@ state = solve();
 
 				// first shot on this level, try high shot first
 				firstShot = true;
-				
+
 			}
-			//If lost, then restart the level
-			else if (state == GameState.LOST) 
-			{
-								
+			// If lost, then restart the level
+			else if (state == GameState.LOST) {
+
 				levelSchemer.updateStats(ar, false);
 
 				ar.loadLevel(levelSchemer.currentLevel);
-						
-			} 
-			else if (state == GameState.LEVEL_SELECTION) 
-			{
-				System.out.println("unexpected level selection page, go to the last current level : "
-								+ levelSchemer.currentLevel);
+
+			} else if (state == GameState.LEVEL_SELECTION) {
+				System.out.println(
+						"unexpected level selection page, go to the last current level : " + levelSchemer.currentLevel);
 				ar.loadLevel(levelSchemer.currentLevel);
-			} 
-			else if (state == GameState.MAIN_MENU) 
-			{
-				System.out
-						.println("unexpected main menu page, reload the level : "
-								+ levelSchemer.currentLevel);
+			} else if (state == GameState.MAIN_MENU) {
+				System.out.println("unexpected main menu page, reload the level : " + levelSchemer.currentLevel);
 				ar.loadLevel(levelSchemer.currentLevel);
-			} 
-			else if (state == GameState.EPISODE_MENU) 
-			{
-				System.out.println("unexpected episode menu page, reload the level: "
-								+ levelSchemer.currentLevel);
+			} else if (state == GameState.EPISODE_MENU) {
+				System.out.println("unexpected episode menu page, reload the level: " + levelSchemer.currentLevel);
 				ar.loadLevel(levelSchemer.currentLevel);
 			}
 
@@ -191,10 +176,11 @@ state = solve();
 
 	}
 
-	  /** 
-	   * Solve a particular level by shooting birds directly to pigs
-	   * only intended for one level
-	   * @return GameState: the game state after shots.
+	/**
+	 * Solve a particular level by shooting birds directly to pigs only intended for
+	 * one level
+	 * 
+	 * @return GameState: the game state after shots.
 	 */
 	public GameState solve()
 
@@ -205,146 +191,188 @@ state = solve();
 
 		// process image
 		Vision vision = new Vision(screenshot);
-	
-		//find the slingshot
+
+		// find the slingshot
 		Rectangle sling = vision.findSlingshotMBR();
-		
-		//get bird type on sling
+
+		// get bird type on sling
 		ABType birdOnSling = vision.getBirdTypeOnSling();
-		
+
 		GameState startState = ar.checkState();
-		if(startState != GameState.PLAYING) {
-			
+		if (startState != GameState.PLAYING) {
+
 			return startState;
-			
-		}
-		
 
-		//If the level is loaded (in PLAYING　state)but no slingshot detected, then the agent will request to fully zoom out.
-		while (sling == null || birdOnSling == ABType.Unknown && ar.checkState() == GameState.PLAYING) {
-			System.out.println("no slingshot detected. Please remove pop up or zoom out");
-			
-			try {
-				Thread.sleep(1000);
-			} catch (InterruptedException e) {
-				
-				e.printStackTrace();
-			}
-			ar.fullyZoomOut();
-			screenshot = ar.doScreenShot();
-			vision = new Vision(screenshot);
-			sling = vision.findSlingshotMBR();
 		}
 
-		
-		 // get all the pigs
- 		List<ABObject> pigs = vision.findPigsMBR();
- 		final List<ABObject> birds = vision.findBirdsRealShape();
-		final List<ABObject> hills = vision.findHills();		
+		// If the level is loaded (in PLAYING state) but no slingshot detected or no
+		// bird on sling is detected, then the agent will try to do something with it.
+		while ((sling == null || birdOnSling == ABType.Unknown) && ar.checkState() == GameState.PLAYING) {
+			visionInfo retValues = new visionInfo(sling, vision, screenshot, birdOnSling);
+			waitTillSlingshotIsFound(retValues);
+			sling = retValues.sling;
+			vision = retValues.vision;
+			screenshot = retValues.screenshot;
+			birdOnSling = retValues.birdOnSling;
+		}
+
+		startState = ar.checkState();
+		if (startState != GameState.PLAYING) {
+			return startState;
+		}
+
+		// get all the pigs
+		List<ABObject> pigs = vision.findPigsMBR();
+		final List<ABObject> birds = vision.findBirdsRealShape();
+		final List<ABObject> hills = vision.findHills();
 		final List<ABObject> blocks = vision.findBlocksRealShape();
 		int gnd = vision.getGroundLevel();
 		tp.ground = gnd;
 
-		//creates the logwriter that will be used to store the information about turns		
+		// creates the logwriter that will be used to store the information about turns
 		final LogWriter log = new LogWriter("output.csv");
-		log.appendStartLevel(levelSchemer.currentLevel,  pigs,  birds,  blocks, hills,  birdOnSling);
+		log.appendStartLevel(levelSchemer.currentLevel, pigs, birds, blocks, hills, birdOnSling);
 		log.saveStart(ar.doScreenShot());
-		
-		//accumulates information about the scene that we are currently playing
-		SceneState currentState = new SceneState(pigs, hills, blocks, sling, vision.findTNTs(), prevTarget, firstShot, birds, birdOnSling);
+
+		// accumulates information about the scene that we are currently playing
+		SceneState currentState = new SceneState(pigs, hills, blocks, sling, vision.findTNTs(), prevTarget, firstShot,
+				birds, birdOnSling);
 		// Prepare shot.
 		Shot shot = null;
- 		
+
 		GameState state = ar.checkState();
 		// if there is a sling, then play, otherwise skip.
 		if (sling != null) {
-			
-			
-			//If there are pigs, we pick up a pig randomly and shoot it. 
-			if (!pigs.isEmpty()) {		
-				
-				AbstractHeuristic tmp = new DestroyAsManyPigsAtOnceAsPossibleHeuristics(currentState ,ar, tp,log);
+
+			// If there are pigs, we pick up a pig randomly and shoot it.
+			if (!pigs.isEmpty()) {
+
+				AbstractHeuristic tmp = new DestroyAsManyPigsAtOnceAsPossibleHeuristics(currentState, ar, tp, log);
 				shot = tmp.getShot();
-				
+
 			} else {
 				System.err.println("No Release Point Found, will try to zoom out");
-				//try to zoom out 
+				// try to zoom out
 				ActionRobot.fullyZoomOut();
-				
+
 				return state;
 			}
-			
-			// check whether the slingshot is changed. the change of the slingshot indicates a change in the scale.
-		    state = performTheActualShooting(log, currentState, shot);
-			
+
+			// check whether the slingshot is changed. the change of the slingshot indicates
+			// a change in the scale.
+			state = performTheActualShooting(log, currentState, shot);
+
 		}
 		return state;
 	}
-	
-	private GameState performTheActualShooting(LogWriter log, SceneState currentState, Shot shot)
-	{
+
+	private GameState performTheActualShooting(LogWriter log, SceneState currentState, Shot shot) {
 		ar.fullyZoomOut();
 		BufferedImage screenshot = ar.doScreenShot();
 		Vision vision = new Vision(screenshot);
 		Rectangle _sling = vision.findSlingshotRealShape();
-		
-		GameState state = null;
-		if (_sling != null)
-		{
-			double scale_diff = Math.pow((currentState._sling.width - _sling.width),2) +  Math.pow((currentState._sling.height - _sling.height),2);
 
-			if (scale_diff < 25)
-			{					
-				if (shot.getDx() < 0)
-				{
-					ar.shoot(shot.getX(), shot.getY(), shot.getDx(), shot.getDy(), 0, shot.getT_tap(), false, tp, currentState._sling, currentState._birdOnSling, currentState._blocks,  currentState._birds, 1);
+		GameState state = null;
+		if (_sling != null) {
+			double scale_diff = Math.pow((currentState._sling.width - _sling.width), 2)
+					+ Math.pow((currentState._sling.height - _sling.height), 2);
+
+			if (scale_diff < 25) {
+				if (shot.getDx() < 0) {
+					ar.shoot(shot.getX(), shot.getY(), shot.getDx(), shot.getDy(), 0, shot.getT_tap(), false, tp,
+							currentState._sling, currentState._birdOnSling, currentState._blocks, currentState._birds,
+							1);
 				}
 
-				try 
-				{
+				try {
 
 					state = ar.checkState();
 					log.appendScore(ar.getCurrentScore(), state);
 					log.flush(ar.doScreenShot());
-				} 
-				catch (Exception e) 
-				{
+				} catch (Exception e) {
 					e.printStackTrace();
-				}					
+				}
 
-				if ( state == GameState.PLAYING )
-				{
+				if (state == GameState.PLAYING) {
 					vision = new Vision(ar.doScreenShot());
 					List<Point> traj = vision.findTrajPoints();
 					Point releasePoint = new Point(shot.getX() + shot.getDx(), shot.getY() + shot.getDy());
 
 					// adjusts trajectory planner
 					tp.adjustTrajectory(traj, vision.findSlingshotRealShape(), releasePoint);
-			
+
 					firstShot = false;
-				}    
-			}
-			else
+				}
+			} else
 				System.out.println("Scale is changed, can not execute the shot, will re-segement the image");
-		}
-		else
+		} else
 			System.out.println("no sling detected, can not execute the shot, will re-segement the image");
 
-		return state;		
+		return state;
+	}
+	
+	/**
+	**	performs the waiting for the slingshot to be found by zooming out and in and out
+	**/
+	private void waitTillSlingshotIsFound(visionInfo inf)
+	{
+		if (inf.sling == null)
+		{
+			System.out.println("No slingshot detected. Please remove pop up or zoom out");
+		}
+		else if (inf.birdOnSling == ABType.Unknown)
+		{
+			System.out.println("No bird on sling detected!!");
+		}
+
+		ar.fullyZoomOut();	
+		inf.screenshot = ar.doScreenShot();			
+		inf.vision = new Vision(inf.screenshot);
+		inf.sling = inf.vision.findSlingshotRealShape();
+		inf.birdOnSling = inf.vision.getBirdTypeOnSling();
+
+		if ( inf.birdOnSling == ABType.Unknown )
+		{
+			ar.fullyZoomIn();
+			inf.screenshot = ar.doScreenShot();			
+			inf.vision = new Vision(inf.screenshot);
+			inf.birdOnSling = inf.vision.getBirdTypeOnSling();				
+			ar.fullyZoomOut();
+			
+			inf.screenshot = ar.doScreenShot();			
+			inf.vision = new Vision(inf.screenshot);	
+			inf.sling = inf.vision.findSlingshotRealShape();
+		}
 	}
 
 	private double distance(Point p1, Point p2) {
-		return Math.sqrt((double) ((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y)* (p1.y - p2.y)));
+		return Math.sqrt((double) ((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y)));
+	}
+	
+	private class visionInfo
+	{
+		public Rectangle sling;
+		public Vision vision;
+		public BufferedImage screenshot;
+		public ABType birdOnSling;
+
+		public visionInfo(Rectangle sl, Vision vis, BufferedImage sc, ABType birdie)
+		{
+			sling = sl;
+			vision = vis;
+			screenshot = sc;
+			birdOnSling = birdie;
+		}
 	}
 
 	public static void main(String args[]) {
 
 		ClientNaiveAgent na;
-		if(args.length > 0)
+		if (args.length > 0)
 			na = new ClientNaiveAgent(args[0]);
 		else
 			na = new ClientNaiveAgent();
 		na.run();
-		
+
 	}
 }
