@@ -30,6 +30,11 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
 		// TODO Auto-generated constructor stub
 
 		_utility = estimateUtility();
+		if ( _possibleDLTrajectories.size() == 0 )
+		{
+			noHighShotFound = true;
+			_utility = estimateUtility();
+		}
 	}
 
 	/**
@@ -97,7 +102,37 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
 	 * object. (pig)
 	 */
 	protected void estimateTrajectories(Point tmpTargetPoint, ABObject tmpTargetObject, boolean centerShot) {
+		// create list with all objects
+				ArrayList<ABObject> tmpHillsAndBlocks = new ArrayList<ABObject>(_currentState._hills);
+				
+				tmpHillsAndBlocks.addAll(_currentState._blocks);		
 
+				ArrayList<Point> pts = null;		
+
+				// estimate launch point
+				if (noHighShotFound == false)
+				{
+					pts = _tp.estimateLaunchPoint(_currentState._sling, tmpTargetPoint, _currentState._hills, _currentState._blocks, tmpTargetObject, _currentState._birdOnSling);
+				} 
+				else
+				{
+					pts = _tp.estimateLaunchPoint(_currentState._sling, tmpTargetPoint);
+				}
+
+				for (Point tmpReleasePoint : pts)
+				{
+					// create new instance of DLTrajectory
+					DLTrajectory tmpDLTrajectory = new DLTrajectory(_actionRobot, _tp, _currentState._sling, _currentState._birdOnSling, tmpReleasePoint, tmpTargetPoint, tmpTargetObject, _currentState._hills, _currentState._blocks, _currentState._pigs);
+
+					// compute heuristic utility
+					/*** Can't tell you everything... ;) ***/
+
+					// preffer center shot
+					/*** Can't tell you everything... ;) ***/		
+
+					// add trajectory to possible trajectories
+					_possibleDLTrajectories.add(tmpDLTrajectory);						
+				}		
 	}
 
 	/**
@@ -108,7 +143,46 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
 	 */
 	@Override
 	protected int getTapInterval() {
-		return 0;
+		int tapInterval = 0;
+        int collision = 100;
+
+        if(_currentState._birdOnSling == ABType.YellowBird 
+            || _currentState._birdOnSling == ABType.BlueBird 
+            || noHighShotFound == true  )
+        {
+            collision = _selectedDLTrajectory.getPercentageOfTheTrajectoryWhenTheFirstObjectIsHit(_currentState._blocks);
+        }
+        
+        switch (_currentState._birdOnSling)
+        {
+            case RedBird:
+                tapInterval = 0; break;               // start of trajectory
+            case YellowBird:
+                /*** Can't tell you everything... ;) ***/
+                break;
+            case WhiteBird:
+                /*** Can't tell you everything... ;) ***/break; // 70-90% of the way
+            case BlackBird:
+                /*** Can't tell you everything... ;) ***/break; // 70-90% of the way
+            case BlueBird:
+                /*** Can't tell you everything... ;) ***/break; // 65-85% of the way
+            default:
+                tapInterval =  60;
+        }
+
+        if ( _currentState._birdOnSling == ABType.WhiteBird && noHighShotFound == false )
+        {
+            /*** Can't tell you everything... ;) ***/
+        }
+        
+        int ret = _tp.getTapTime(_currentState._sling, _selectedDLTrajectory.releasePoint, _selectedDLTrajectory.targetPoint, tapInterval);
+
+        if (_currentState._birdOnSling == ABType.BlackBird )
+        {
+            /*** Can't tell you everything... ;) ***/
+        }
+
+        return ret;
 	}
 
 	/**
