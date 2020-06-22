@@ -3,6 +3,7 @@ package abnew.heuristics;
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Random;
 
 import ab.demo.other.ClientActionRobot;
 import ab.planner.TrajectoryPlanner;
@@ -121,18 +122,63 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
 
 				for (Point tmpReleasePoint : pts)
 				{
+					
 					// create new instance of DLTrajectory
-					DLTrajectory tmpDLTrajectory = new DLTrajectory(_actionRobot, _tp, _currentState._sling, _currentState._birdOnSling, tmpReleasePoint, tmpTargetPoint, tmpTargetObject, _currentState._hills, _currentState._blocks, _currentState._pigs);
+					//DLTrajectory tmpDLTrajectory = new DLTrajectory(_actionRobot, _tp, _currentState._sling, _currentState._birdOnSling, tmpReleasePoint, tmpTargetPoint, tmpTargetObject, _currentState._hills, _currentState._blocks, _currentState._pigs);
 
-					// compute heuristic utility
-					/*** Can't tell you everything... ;) ***/
+					//estimateSingleTrajectory(tmpReleasePoint, tmpTargetPoint, tmpTargetObject);
 
-					// preffer center shot
-					/*** Can't tell you everything... ;) ***/		
+					// compute heuristic utility					/*** Can't tell you everything... ;) ***/
 
-					// add trajectory to possible trajectories
-					_possibleDLTrajectories.add(tmpDLTrajectory);						
+					// prefer center shot 					/*** Can't tell you everything... ;) ***/		
+
+					
+					// add trajectory to possible trajectories 					//
+					//_possibleDLTrajectories.add(tmpDLTrajectory);	
+					
+					//instead calling this method  !!!
+					
+					estimateSingleTrajectory(tmpReleasePoint, tmpTargetPoint, tmpTargetObject);
 				}		
+		
+	}
+	
+	/**
+	**	estimates a single trajectory for the target, do not know if it is needed, got it from dynamit heuristics
+	**/
+	private void estimateSingleTrajectory(Point tmpReleasePoint, Point tmpTargetPoint, ABObject tmpTargetObject)
+	{
+		// create new instance of DLTrajectory
+		DLTrajectory tmpDLTrajectory = new DLTrajectory(_actionRobot, _tp, _currentState._sling, _currentState._birdOnSling, tmpReleasePoint, tmpTargetPoint, tmpTargetObject, _currentState._hills, _currentState._blocks, _currentState._pigs);
+		int trajUtility = 0;
+		for (ABObject tmp : _currentState._blocks) //gia ola ta tetragwna poy yparxoyn sthn eikona: Ice(10), Wood(11), Stone(12), from ABType 
+		{
+			double dist = distance(tmpTargetPoint, new Point((int)tmp.getCenterX(), (int)tmp.getCenterY() ) );
+
+			if (dist < 60 && tmp.type.id > 8)
+			{
+				//CHANGE
+				trajUtility += ((60 - dist) / 100.0) * dynamiteUtility[tmp.type.id - 9];  //tnt = 9 
+			// na brw me ti pouli 8a xtyphsei 
+			}
+		}
+
+		for (ABObject tmp : _currentState._pigs)
+		{
+			double dist = distance(tmpTargetPoint, new Point((int)tmp.getCenterX(), (int)tmp.getCenterY() ) );
+
+			if (dist < 110 && tmp.type.id > 8)
+			{
+				//CHANGE
+				trajUtility += ((110 - dist) / 100.0) * dynamiteUtility[tmp.type.id - 9];
+			}
+		}
+
+		
+		tmpDLTrajectory.heuristicUtility = trajUtility +(int) ( 1.2 * tmpDLTrajectory.trajectoryUtility) + tmpDLTrajectory.pigsInTheWay.size() * 5000;
+
+		// add trajectory to possible trajectories
+		_possibleDLTrajectories.add(tmpDLTrajectory);
 	}
 
 	/**
@@ -143,8 +189,12 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
 	 */
 	@Override
 	protected int getTapInterval() {
+		
 		int tapInterval = 0;
         int collision = 100;
+        // create random object 
+        Random randomGenerator = null; 
+  
 
         if(_currentState._birdOnSling == ABType.YellowBird 
             || _currentState._birdOnSling == ABType.BlueBird 
@@ -159,30 +209,52 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
                 tapInterval = 0; break;               // start of trajectory
             case YellowBird:
                 /*** Can't tell you everything... ;) ***/
+		         tapInterval =  0;
                 break;
             case WhiteBird:
-                /*** Can't tell you everything... ;) ***/break; // 70-90% of the way
+                /*** Can't tell you everything... ;) ***/
+            	randomGenerator = new Random(); 
+				tapInterval =  70 + randomGenerator.nextInt(20);
+            	//tapInterval = collision - 15;
+            	break; // 70-90% of the way
             case BlackBird:
-                /*** Can't tell you everything... ;) ***/break; // 70-90% of the way
+                /*** Can't tell you everything... ;) ***/
+            	randomGenerator = new Random(); 
+		        tapInterval =  70 + randomGenerator.nextInt(20);
+            	//tapInterval = collision - 15;
+            	break; // 70-90% of the way
             case BlueBird:
-                /*** Can't tell you everything... ;) ***/break; // 65-85% of the way
+                /*** Can't tell you everything... ;) ***/
+            	randomGenerator = new Random(); 
+       		    tapInterval =  65 + randomGenerator.nextInt(20);
+            	//tapInterval = collision - 15;
+            	break; // 65-85% of the way
             default:
                 tapInterval =  60;
+		
         }
 
         if ( _currentState._birdOnSling == ABType.WhiteBird && noHighShotFound == false )
         {
             /*** Can't tell you everything... ;) ***/
+        	if (Math.toDegrees(_selectedDLTrajectory.releaseAngle) > 45)
+                tapInterval = 95;
+            else 
+                tapInterval = 98;
+            
+            return _tp.getTapTime(_currentState._sling, _selectedDLTrajectory.releasePoint, new Point(_selectedDLTrajectory.targetPoint.x - 10, _selectedDLTrajectory.targetPoint.y) , tapInterval);
         }
+        
         
         int ret = _tp.getTapTime(_currentState._sling, _selectedDLTrajectory.releasePoint, _selectedDLTrajectory.targetPoint, tapInterval);
 
         if (_currentState._birdOnSling == ABType.BlackBird )
         {
             /*** Can't tell you everything... ;) ***/
+        	 ret = 6000;
         }
 
-        return ret;
+        return ret;  //was 0 
 	}
 
 	/**
