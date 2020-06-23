@@ -158,7 +158,7 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
 			if (dist < 60 && tmp.type.id > 8)
 			{
 				//CHANGE
-				trajUtility += ((60 - dist) / 100.0) * dynamiteUtility[tmp.type.id - 9];  //tnt = 9 
+				trajUtility += ((60 - dist) / 100.0) * _selectedDLTrajectory.heuristicUtility;  //tnt = 9 
 			// na brw me ti pouli 8a xtyphsei 
 			}
 		}
@@ -170,7 +170,7 @@ public class DestroyAsManyPigsAtOnce extends AbstractHeuristic {
 			if (dist < 110 && tmp.type.id > 8)
 			{
 				//CHANGE
-				trajUtility += ((110 - dist) / 100.0) * dynamiteUtility[tmp.type.id - 9];
+				trajUtility += ((60 - dist) / 100.0) * _selectedDLTrajectory.heuristicUtility;
 			}
 		}
 
