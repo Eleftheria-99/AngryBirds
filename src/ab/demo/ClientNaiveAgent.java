@@ -129,6 +129,7 @@ public class ClientNaiveAgent implements Runnable {
 
 		currentLevel = (byte) getNextLevel();
 		ar.loadLevel(currentLevel);
+		checkMyScore();
 		// ar.loadLevel((byte)9);
 		GameState state;
 		while (true) {
