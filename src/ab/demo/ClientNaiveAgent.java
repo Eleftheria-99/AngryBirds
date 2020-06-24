@@ -10,6 +10,7 @@ package ab.demo;
 
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.geom.Area;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,9 +25,11 @@ import ab.vision.ABObject;
 import ab.vision.ABType;
 import ab.vision.GameStateExtractor.GameState;
 import ab.vision.Vision;
+import abnew.heuristics.DestroyAsManyPigsAtOnce;
+import abnew.heuristics.DestroyBuilding;
 import dl.utils.AbstractHeuristic;
 import dl.utils.DLLevelSelection;
-import dl.utils.DestroyAsManyPigsAtOnceAsPossibleHeuristics;
+import dl.utils.DLUtils;
 import dl.utils.LogWriter;
 //Naive agent (server/client version)
 import dl.utils.SceneState;
@@ -129,7 +132,6 @@ public class ClientNaiveAgent implements Runnable {
 
 		currentLevel = (byte) getNextLevel();
 		ar.loadLevel(currentLevel);
-		checkMyScore();
 		// ar.loadLevel((byte)9);
 		GameState state;
 		while (true) {
@@ -146,7 +148,7 @@ public class ClientNaiveAgent implements Runnable {
 				levelSchemer.updateStats(ar, true);
 
 				ar.loadLevel(levelSchemer.currentLevel);
-
+				checkMyScore();
 				// make a new trajectory planner whenever a new level is entered
 				tp = new TrajectoryPlanner();
 
@@ -227,6 +229,7 @@ public class ClientNaiveAgent implements Runnable {
 		final List<ABObject> birds = vision.findBirdsRealShape();
 		final List<ABObject> hills = vision.findHills();
 		final List<ABObject> blocks = vision.findBlocksRealShape();
+		
 		int gnd = vision.getGroundLevel();
 		tp.ground = gnd;
 
@@ -248,8 +251,12 @@ public class ClientNaiveAgent implements Runnable {
 			// If there are pigs, we pick up a pig randomly and shoot it.
 			if (!pigs.isEmpty()) {
 
-				AbstractHeuristic tmp = new DestroyAsManyPigsAtOnceAsPossibleHeuristics(currentState, ar, tp, log);
-				shot = tmp.getShot();
+				AbstractHeuristic tmp = new DestroyBuilding(currentState, ar, tp, log);
+				//AbstractHeuristic tmp = new DestroyAsManyPigsAtOnce(currentState, ar, tp, log);
+				shot = findHeuristicAndShoot(currentState, log);
+	
+			    //shot = tmp.getShot();
+			 
 
 			} else {
 				System.err.println("No Release Point Found, will try to zoom out");
@@ -311,54 +318,119 @@ public class ClientNaiveAgent implements Runnable {
 
 		return state;
 	}
-	
+
 	/**
-	**	performs the waiting for the slingshot to be found by zooming out and in and out
-	**/
-	private void waitTillSlingshotIsFound(visionInfo inf)
-	{
-		if (inf.sling == null)
-		{
+	 ** performs the waiting for the slingshot to be found by zooming out and in and
+	 * out
+	 **/
+	private void waitTillSlingshotIsFound(visionInfo inf) {
+		if (inf.sling == null) {
 			System.out.println("No slingshot detected. Please remove pop up or zoom out");
-		}
-		else if (inf.birdOnSling == ABType.Unknown)
-		{
+		} else if (inf.birdOnSling == ABType.Unknown) {
 			System.out.println("No bird on sling detected!!");
 		}
 
-		ar.fullyZoomOut();	
-		inf.screenshot = ar.doScreenShot();			
+		ar.fullyZoomOut();
+		inf.screenshot = ar.doScreenShot();
 		inf.vision = new Vision(inf.screenshot);
 		inf.sling = inf.vision.findSlingshotRealShape();
 		inf.birdOnSling = inf.vision.getBirdTypeOnSling();
 
-		if ( inf.birdOnSling == ABType.Unknown )
-		{
+		if (inf.birdOnSling == ABType.Unknown) {
 			ar.fullyZoomIn();
-			inf.screenshot = ar.doScreenShot();			
+			inf.screenshot = ar.doScreenShot();
 			inf.vision = new Vision(inf.screenshot);
-			inf.birdOnSling = inf.vision.getBirdTypeOnSling();				
+			inf.birdOnSling = inf.vision.getBirdTypeOnSling();
 			ar.fullyZoomOut();
-			
-			inf.screenshot = ar.doScreenShot();			
-			inf.vision = new Vision(inf.screenshot);	
+
+			inf.screenshot = ar.doScreenShot();
+			inf.vision = new Vision(inf.screenshot);
 			inf.sling = inf.vision.findSlingshotRealShape();
 		}
+	}
+
+	private Shot findHeuristicAndShoot(SceneState currentState, LogWriter log) {
+		Random rand = new Random();
+		AbstractHeuristic possibleHeuristics[] = new AbstractHeuristic[2];
+		possibleHeuristics[0] = new DestroyBuilding(currentState, ar, tp, log);
+		possibleHeuristics[1] = new DestroyAsManyPigsAtOnce(currentState, ar, tp, log);
+
+		int heuristicId = 0;
+		int max = 0xffff0000;
+
+		for (int i = 0; i < possibleHeuristics.length; ++i) {
+			AbstractHeuristic tmp = possibleHeuristics[i];
+
+			///System.out.println("Utility " + tmp.toString() + ": " + tmp.getUtility());
+			tmp.writeToLog();
+			if (max < tmp.getUtility() && !(i == 0 && tmp.getUtility() < 1000)) {
+				max = tmp.getUtility();
+				heuristicId = i;
+			}
+
+		}
+
+		Shot shot = possibleHeuristics[heuristicId].getShot();
+		if (shot != null) {
+			System.out.println("Heuristic ID: " + heuristicId);
+		}
+
+		// if there are hills in the way, choose a random set of blocks and make them
+		// targets
+		if (possibleHeuristics[heuristicId].getSelectedDLTrajectory() != null
+				&& possibleHeuristics[heuristicId].getSelectedDLTrajectory().hillsInTheWay.size() != 0) {
+
+			Shot lastBreathShot = getLastBreathShot(currentState, log);
+
+			if (lastBreathShot != null) {
+				shot = lastBreathShot;
+			}
+		}
+
+		if (shot == null) {
+			shot = DLUtils.findRandomShot(tp, currentState._sling, currentState._birdOnSling);
+		}
+
+		return shot;
+	}
+
+	/**
+	 ** In case the strategies do not find any possible shooting, i.e. blocks in the
+	 * way, too far away or too close, than this "random" shot is fired.
+	 **/
+	private Shot getLastBreathShot(SceneState currentState, LogWriter log) {
+		List<ABObject> randomBlocks = new ArrayList<ABObject>();
+
+		int rndNumber = 0;
+		int nOfRandomBlockToChoose = (currentState._blocks.size() > 5 ? 5 : currentState._blocks.size());
+
+		for (int i = 0; i < nOfRandomBlockToChoose; i++) {
+			rndNumber = randomGenerator.nextInt(currentState._blocks.size());
+
+			if (!randomBlocks.contains(currentState._blocks.get(rndNumber))) {
+				randomBlocks.add(currentState._blocks.get(rndNumber));
+			} else {
+				i--;
+			}
+		}
+
+		AbstractHeuristic lastBreathHeuristic = new DestroyAsManyPigsAtOnce(currentState, ar, tp, log);
+
+		return lastBreathHeuristic.getShot();
+
 	}
 
 	private double distance(Point p1, Point p2) {
 		return Math.sqrt((double) ((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y)));
 	}
-	
-	private class visionInfo
-	{
+
+	private class visionInfo {
 		public Rectangle sling;
 		public Vision vision;
 		public BufferedImage screenshot;
 		public ABType birdOnSling;
 
-		public visionInfo(Rectangle sl, Vision vis, BufferedImage sc, ABType birdie)
-		{
+		public visionInfo(Rectangle sl, Vision vis, BufferedImage sc, ABType birdie) {
 			sling = sl;
 			vision = vis;
 			screenshot = sc;

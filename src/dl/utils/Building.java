@@ -530,7 +530,7 @@ public class Building
 		for (int offset : offsets)
 		{
 			DLTrajectory tmp = isReachable(_actionRobot, _tp, _sling, _birdOnSling,  _hills,  _blocks,  _pigs,  new Point(bl.x, bl.y + offset),  bl);
-			
+		   
 			if (tmp != null  && tmp.buildingFlag == true)
 			{
 				
@@ -542,7 +542,7 @@ public class Building
 				unreachableJoint.add(tmp);
 			}				
 			tmp = isReachable(_actionRobot, _tp, _sling, _birdOnSling,  _hills,  _blocks,  _pigs,  new Point(bl.x , bl.y + bl.height - offset),  bl);
-			
+		
 			if (tmp != null && tmp.buildingFlag == true)
 			{
 				oneJoint.add(tmp);
